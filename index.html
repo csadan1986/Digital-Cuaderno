@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Cuaderno Digital Completo</title>
+<title>Cuaderno Digital </title>
 
 <!-- Manifest y otros meta -->
 <link rel="manifest" href="manifest.json" />
@@ -613,8 +613,59 @@ insertDialogBtn.addEventListener('click', () => {
 });
 
 // Función para corregir gramática (simplificada)
-checkGrammarBtn.addEventListener('click', () => {
-  alert("Función de corrección gramatical no implementada en este demo.");
+checkGrammarBtn.addEventListener('click', async () => {
+  const text = editor.textContent;
+  if (!text.trim()) {
+    alert("El editor está vacío.");
+    return;
+  }
+  checkGrammarBtn.disabled = true;
+  checkGrammarBtn.textContent = '⏳ Corrigiendo...';
+
+  try {
+    const response = await fetch('https://api.languagetool.org/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        text: text,
+        language: 'es',
+        enabledOnly: false
+      })
+    });
+    const data = await response.json();
+
+    if (data.matches && data.matches.length > 0) {
+      let correctedText = text;
+      const corrections = data.matches
+        .map(match => ({
+          offset: match.offset,
+          length: match.length,
+          replacements: match.replacements
+        }))
+        .sort((a, b) => b.offset - a.offset);
+
+      corrections.forEach(corr => {
+        if (corr.replacements && corr.replacements.length > 0) {
+          const before = correctedText.slice(0, corr.offset);
+          const after = correctedText.slice(corr.offset + corr.length);
+          const replacement = corr.replacements[0].value;
+          correctedText = before + replacement + after;
+        }
+      });
+
+      editor.textContent = correctedText;
+      alert("Texto corregido automáticamente.");
+      saveCurrentPage();
+    } else {
+      alert("No se encontraron errores.");
+    }
+  } catch (e) {
+    alert("Error al conectar con el servicio de corrección.");
+    console.error(e);
+  } finally {
+    checkGrammarBtn.disabled = false;
+    checkGrammarBtn.textContent = '✔️ Corregir Gramática';
+  }
 });
 
 // Guardar como PDF
@@ -792,3 +843,4 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
+
